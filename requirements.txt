@@ -1,0 +1,7 @@
+# requirements.txt
+praw==7.6.0  # Para interactuar con la API de Reddit
+kafka-python==2.0.2  # Para enviar datos a Apache Kafka
+pyspark==3.4.0  # Para procesamiento de datos en tiempo real
+textblob==0.15.3  # Para análisis de sentimientos
+flask==2.2.2  # Opcional: Para crear una API REST más adelante
+python-dotenv==1.0.0  # Para manejo de variables de entorno

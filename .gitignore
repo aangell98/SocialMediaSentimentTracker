@@ -5,6 +5,9 @@ venv/
 # Ignorar archivos de configuración local
 *.local
 
+# Ignorar archivos de configuración
+src/data_collection/config.py
+
 # Ignorar archivos de Python compilados
 __pycache__/
 *.pyc
