@@ -19,3 +19,7 @@ data/
 
 # Ignorar Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+
+# Ignorar datos personales
+Conocimiento.txt
+ejecucion.txt
