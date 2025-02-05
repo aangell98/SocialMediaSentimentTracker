@@ -1,18 +1,29 @@
 # src/processing/sentiment_analysis.py
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from transformers import pipeline
 import json
 
-# Inicializar el analizador de VADER
-analyzer = SentimentIntensityAnalyzer()
+# Cargar el modelo preentrenado para análisis de sentimientos
+sentiment_analyzer = pipeline("sentiment-analysis", model="tabularisai/multilingual-sentiment-analysis")
 
 def analyze_sentiment(comment_text):
     """
-    Analiza el sentimiento de un texto usando VADER.
-    :param comment_text: Texto del comentario.
-    :return: Diccionario con el análisis de sentimientos.
+    Analiza el sentimiento de un texto, truncando si es demasiado largo.
     """
-    sentiment = analyzer.polarity_scores(comment_text)
-    return sentiment
+    max_length = 512  # Límite de tokens para RoBERTa
+
+    # Si el texto es demasiado largo, lo corta
+    truncated_text = comment_text[:max_length]
+
+    try:
+        result = sentiment_analyzer(truncated_text)[0]
+        return {
+            "label": result["label"],  # Puede ser "positive", "neutral" o "negative"
+            "score": result["score"]
+        }
+    except Exception as e:
+        print(f"Error al analizar el sentimiento: {e}")
+        return {"label": "neutral", "score": 0.0}
+
 
 
 def process_comments_from_file(filename="data/reddit_comments.json"):
@@ -42,28 +53,29 @@ def process_comments_from_file(filename="data/reddit_comments.json"):
 
         # Agregar el análisis al diccionario del comentario
         comment["sentiment"] = {
-            "positive": sentiment["pos"],
-            "negative": sentiment["neg"],
-            "neutral": sentiment["neu"],
-            "compound": sentiment["compound"],
-            "overall_sentiment": classify_sentiment(sentiment["compound"])
+            "label": sentiment["label"],
+            "score": sentiment["score"],
+            "overall_sentiment": classify_sentiment(sentiment["label"])
         }
 
         analyzed_comments.append(comment)
 
     return analyzed_comments
 
-
-def classify_sentiment(compound_score):
+def classify_sentiment(label):
     """
-    Clasifica el sentimiento general basado en el puntaje compound de VADER.
-    :param compound_score: Puntaje compound de VADER.
+    Clasifica el sentimiento general basado en la etiqueta del modelo.
+    :param label: Etiqueta del modelo ("POSITIVE", "NEGATIVE").
     :return: Etiqueta de sentimiento ("positive", "negative", "neutral").
     """
-    if compound_score >= 0.05:
+    if label == "Positive":
         return "positive"
-    elif compound_score <= -0.05:
+    elif label == "Negative":
         return "negative"
+    elif label == "Very Negative":
+        return " very negative"
+    elif label == "Very Positive":
+        return " very positive"
     else:
         return "neutral"
 

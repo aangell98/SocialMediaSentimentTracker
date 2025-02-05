@@ -26,15 +26,23 @@ def load_data(filename="data/analyzed_reddit_comments.json"):
                 "created_utc": item.get("created_utc", None),
                 "author": item.get("author", ""),
                 "comment_url": item.get("comment_url", ""),
-                "positive": sentiment.get("positive", 0),
-                "negative": sentiment.get("negative", 0),
-                "neutral": sentiment.get("neutral", 0),
-                "compound": sentiment.get("compound", 0),
+                "label": sentiment.get("label", "neutral"),  # Etiqueta de sentimiento
+                "score": sentiment.get("score", 0),         # Puntuación del modelo
                 "overall_sentiment": sentiment.get("overall_sentiment", "neutral")
             }
             flattened_data.append(flattened_item)
 
         df = pd.DataFrame(flattened_data)
+
+        # Mapear etiquetas a valores numéricos
+        sentiment_mapping = {
+            "Very Positive": 1.0,
+            "Positive": 0.5,
+            "Neutral": 0.0,
+            "Negative": -0.5,
+            "Very Negative": -1.0
+        }
+        df["sentiment_value"] = df["label"].map(sentiment_mapping).fillna(0)
 
         print(f"Cantidad de comentarios procesados: {len(df)}")
 
@@ -44,13 +52,7 @@ def load_data(filename="data/analyzed_reddit_comments.json"):
         print(f"El archivo {filename} no existe.")
         return None
 
-# Generar una nube de palabras
-def generate_wordcloud(texts):
-    text = " ".join(texts)
-    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text)
-    return wordcloud
-
-# Mostrar la distribución de sentimientos
+# Mostrar distribución de sentimientos
 def show_sentiment_distribution(df):
     if "overall_sentiment" not in df.columns:
         st.error("La columna 'overall_sentiment' no está presente en los datos.")
@@ -67,8 +69,8 @@ def show_sentiment_distribution(df):
 
 # Mostrar tendencias temporales
 def show_sentiment_trends(df):
-    if "created_utc" not in df.columns or "compound" not in df.columns:
-        st.error("Faltan columnas necesarias ('created_utc' o 'compound') en los datos.")
+    if "created_utc" not in df.columns or "sentiment_value" not in df.columns:
+        st.error("Faltan columnas necesarias ('created_utc' o 'sentiment_value') en los datos.")
         return
 
     # Convertir 'created_utc' a datetime y eliminar filas con valores inválidos
@@ -79,40 +81,37 @@ def show_sentiment_trends(df):
         st.warning("No hay suficientes datos con fechas válidas para mostrar tendencias temporales.")
         return
 
-    # Establecer 'created_utc' como índice
-    df.set_index("created_utc", inplace=True)
+    # Establecer 'created_utc' como índice (asegurando que sea un DatetimeIndex)
+    df = df.set_index("created_utc")
 
-    # Reemplazar valores NaN en 'compound' con 0
-    df["compound"] = df["compound"].fillna(0)
+    if not isinstance(df.index, pd.DatetimeIndex):
+        st.error("El índice del DataFrame no es un DatetimeIndex. Verifica los datos cargados.")
+        return
 
-    # Resamplear los datos por hora y calcular el promedio del compound
-    df_resampled = df["compound"].resample("1H").mean().reset_index()
+    # Resamplear los datos por hora y calcular el promedio del valor de sentimiento
+    df_resampled = df["sentiment_value"].resample("1h").mean().reset_index()
+
     fig = px.line(
         df_resampled,
         x="created_utc",
-        y="compound",
+        y="sentiment_value",
         title="Tendencias Temporales del Sentimiento"
     )
     st.plotly_chart(fig)
-    
+
 # Mostrar comentarios destacados
 def show_top_comments(df):
+    if "sentiment_value" not in df.columns:
+        st.error("La columna 'sentiment_value' no está presente en los datos.")
+        return
+
     st.subheader("Comentarios Más Positivos")
-    top_positive = df.nlargest(5, "compound")[["comment_text", "compound"]]
+    top_positive = df[df["sentiment_value"] > 0].nlargest(5, "sentiment_value")[["comment_text", "sentiment_value"]]
     st.table(top_positive)
 
     st.subheader("Comentarios Más Negativos")
-    top_negative = df.nsmallest(5, "compound")[["comment_text", "compound"]]
+    top_negative = df[df["sentiment_value"] < 0].nsmallest(5, "sentiment_value")[["comment_text", "sentiment_value"]]
     st.table(top_negative)
-
-# Mostrar nube de palabras
-def show_wordcloud(df):
-    st.subheader("Nube de Palabras")
-    wordcloud = generate_wordcloud(df["comment_text"])
-    plt.figure(figsize=(10, 5))
-    plt.imshow(wordcloud, interpolation="bilinear")
-    plt.axis("off")
-    st.pyplot(plt)
 
 # Main app
 def main():
@@ -129,7 +128,7 @@ def main():
     st.dataframe(df)
 
     # Verificar columnas necesarias
-    required_columns = {"overall_sentiment", "compound", "created_utc"}
+    required_columns = {"overall_sentiment", "sentiment_value", "created_utc"}
     if not required_columns.issubset(df.columns):
         st.error(f"Faltan columnas necesarias: {required_columns - set(df.columns)}")
         return
@@ -143,8 +142,5 @@ def main():
     # Mostrar comentarios destacados
     show_top_comments(df)
 
-    # Mostrar nube de palabras
-    show_wordcloud(df)
-    
 if __name__ == "__main__":
     main()
