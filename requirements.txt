@@ -1,0 +1,14 @@
+# requirements.txt
+praw==7.8.1  # Para interactuar con la API de Reddit
+kafka-python==2.0.2  # Para enviar datos a Apache Kafka
+pyspark==3.4.0  # Para procesamiento de datos en tiempo real
+textblob==0.15.3  # Para análisis de sentimientos
+flask==2.2.2  # Opcional: Para crear una API REST más adelante
+python-dotenv==1.0.0  # Para manejo de variables de entorno
+streamlit==1.23.0  # Para crear el dashboard
+plotly==5.14.1     # Para gráficos interactivos
+matplotlib==3.7.1  # Para gráficos estáticos (opcional)
+seaborn==0.12.2    # Para gráficos estadísticos (opcional)
+torch==2.0.1
+transformers==4.31.0
+tokenizers==0.13.3
