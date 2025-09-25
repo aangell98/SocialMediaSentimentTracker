@@ -1,0 +1,110 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+    paths: 
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths: 
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      run: |
+        cd backend
+        python test_backend.py
+    
+    - name: Test API endpoints
+      run: |
+        cd backend
+        # Start the API in background
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        API_PID=$!
+        
+        # Wait for API to start
+        sleep 10
+        
+        # Test health endpoint
+        curl -f http://localhost:8000/health || exit 1
+        
+        # Test analyze endpoint
+        curl -f -X POST "http://localhost:8000/analyze" \
+          -H "Content-Type: application/json" \
+          -d '{"text":"This is a test message"}' || exit 1
+        
+        # Stop the API
+        kill $API_PID
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      run: |
+        cd backend
+        docker build -t sentiment-api:latest .
+    
+    - name: Test Docker image
+      run: |
+        # Run container in background
+        docker run -d -p 8000:8000 --name test-container sentiment-api:latest
+        
+        # Wait for container to start
+        sleep 15
+        
+        # Test the containerized API
+        curl -f http://localhost:8000/health || exit 1
+        
+        # Clean up
+        docker stop test-container
+        docker rm test-container
+
+  # Uncomment and configure for deployment
+  # deploy:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.ref == 'refs/heads/main'
+  #   
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   
+  #   - name: Deploy to Railway
+  #     run: |
+  #       # Add Railway deployment commands here
+  #       echo "Deploy to Railway or other cloud provider"
