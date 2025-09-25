@@ -1,0 +1,12 @@
+/* Custom styles for the sentiment analysis app */
+.sentiment-positive {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+}
+
+.sentiment-negative {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+}
+
+.sentiment-neutral {
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+}
