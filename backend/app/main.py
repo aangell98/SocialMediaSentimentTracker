@@ -5,19 +5,29 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from .models import SentimentRequest, SentimentResponse, HealthResponse
+# Configure logging FIRST, before imports
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# --- MODIFICACIÓN: Importar los nuevos modelos y el analizador de Reddit ---
+from .models import SentimentRequest, SentimentResponse, HealthResponse, RedditPostRequest, RedditPostResponse
 
 # Try to import real analysis, fall back to mock if not available
 try:
     from .analysis import analyze_sentiment, get_sentiment_pipeline
+    from . import reddit_analyzer # Importar el módulo de reddit
     USING_MOCK = False
-except ImportError:
+    logger.info("Successfully imported real analysis modules")
+except ImportError as e:
+    # --- MODIFICACIÓN AQUÍ: Usar logging en lugar de print ---
+    logger.critical(f"!!! IMPORT ERROR: Falling back to mock mode. Reason: {e}")
     from .analysis_mock import analyze_sentiment, get_sentiment_pipeline
+    # Mock para reddit_analyzer si es necesario
+    class MockRedditAnalyzer:
+        def analyze_reddit_post(self, post_url: str):
+            raise NotImplementedError("Reddit analysis is not available in mock mode")
+    reddit_analyzer = MockRedditAnalyzer()
     USING_MOCK = True
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Version
 __version__ = "2.0.0"
@@ -170,6 +180,30 @@ async def batch_analyze_sentiment(texts: list[str]):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error occurred during batch analysis"
+        )
+
+@app.post("/api/v1/reddit/analyze", response_model=RedditPostResponse)
+async def analyze_reddit_post_endpoint(request: RedditPostRequest):
+    """
+    Fetches comments from a Reddit post URL, analyzes their sentiment,
+    and returns a summary and a list of analyzed comments.
+    """
+    logger.info(f"Received request to analyze Reddit post: {request.post_url}")
+    try:
+        result = reddit_analyzer.analyze_reddit_post(request.post_url)
+        logger.info(f"Successfully analyzed {result['summary']['total_comments_analyzed']} comments from post.")
+        return result
+    except NotImplementedError:
+        logger.error("Reddit analysis called in mock mode.")
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Reddit analysis is not available in mock mode."
+        )
+    except Exception as e:
+        logger.error(f"Error analyzing Reddit post '{request.post_url}': {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred while analyzing the Reddit post: {str(e)}"
         )
 
 

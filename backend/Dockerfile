@@ -23,8 +23,9 @@ COPY requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
+# Copy the application code and environment file
 COPY ./app /code/app
+COPY .env /code/.env
 
 # Create a non-root user for security
 RUN useradd --create-home --shell /bin/bash app \

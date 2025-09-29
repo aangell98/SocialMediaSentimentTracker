@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 
 
 class SentimentRequest(BaseModel):
@@ -33,3 +33,27 @@ class HealthResponse(BaseModel):
     status: str
     message: str
     version: Optional[str] = None
+
+class RedditPostRequest(BaseModel):
+    """Modelo de petición para analizar un post de Reddit."""
+    post_url: str = Field(..., description="La URL completa del post de Reddit a analizar.")
+
+class AnalyzedComment(BaseModel):
+    """Modelo para un único comentario analizado."""
+    text: str
+    author: str
+    sentiment: str
+    score: float
+
+class RedditAnalysisSummary(BaseModel):
+    """Resumen del análisis de sentimiento para un post de Reddit."""
+    post_title: str
+    total_comments_analyzed: int
+    positive_count: int
+    negative_count: int
+    neutral_count: int
+
+class RedditPostResponse(BaseModel):
+    """Modelo de respuesta para un análisis completo de un post de Reddit."""
+    summary: RedditAnalysisSummary
+    comments: List[AnalyzedComment]
